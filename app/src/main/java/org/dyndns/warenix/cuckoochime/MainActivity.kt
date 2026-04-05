@@ -3,6 +3,7 @@ package org.dyndns.warenix.cuckoochime
 import android.Manifest
 import android.app.AlarmManager
 import android.app.PendingIntent
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -10,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
+import java.util.Locale
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -28,6 +30,10 @@ import org.dyndns.warenix.cuckoochime.ui.theme.CuckooChimeTheme
 
 private const val PREFS_NAME = "CuckooChimePrefs"
 private const val KEY_CHIME_ACTIVE = "chime_active"
+private const val KEY_SILENT_START_HOUR = "silent_start_hour"
+private const val KEY_SILENT_START_MINUTE = "silent_start_minute"
+private const val KEY_SILENT_END_HOUR = "silent_end_hour"
+private const val KEY_SILENT_END_MINUTE = "silent_end_minute"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,6 +55,11 @@ fun ChimeControlScreen(modifier: Modifier = Modifier) {
     var isChimeActive by remember { 
         mutableStateOf(getChimeActivePref(context)) 
     }
+
+    var silentStartHour by remember { mutableStateOf(getPrefInt(context, KEY_SILENT_START_HOUR, 22)) }
+    var silentStartMinute by remember { mutableStateOf(getPrefInt(context, KEY_SILENT_START_MINUTE, 0)) }
+    var silentEndHour by remember { mutableStateOf(getPrefInt(context, KEY_SILENT_END_HOUR, 7)) }
+    var silentEndMinute by remember { mutableStateOf(getPrefInt(context, KEY_SILENT_END_MINUTE, 0)) }
     
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -103,6 +114,46 @@ fun ChimeControlScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.width(200.dp)
         ) {
             Text("Test Chime")
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        HorizontalDivider(modifier = Modifier.width(200.dp))
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text(
+            text = "Silent Hours",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Text(
+            text = "Shhh... ${formatTime(silentStartHour, silentStartMinute)} to ${formatTime(silentEndHour, silentEndMinute)}",
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+
+        Row {
+            Button(onClick = {
+                TimePickerDialog(context, { _, h, m ->
+                    silentStartHour = h
+                    silentStartMinute = m
+                    setPrefInt(context, KEY_SILENT_START_HOUR, h)
+                    setPrefInt(context, KEY_SILENT_START_MINUTE, m)
+                }, silentStartHour, silentStartMinute, false).show()
+            }) {
+                Text("Silent From")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(onClick = {
+                TimePickerDialog(context, { _, h, m ->
+                    silentEndHour = h
+                    silentEndMinute = m
+                    setPrefInt(context, KEY_SILENT_END_HOUR, h)
+                    setPrefInt(context, KEY_SILENT_END_MINUTE, m)
+                }, silentEndHour, silentEndMinute, false).show()
+            }) {
+                Text("Silent Until")
+            }
         }
     }
 }
@@ -180,4 +231,24 @@ private fun getChimeActivePref(context: Context): Boolean {
 private fun setChimeActivePref(context: Context, active: Boolean) {
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     prefs.edit().putBoolean(KEY_CHIME_ACTIVE, active).apply()
+}
+
+private fun getPrefInt(context: Context, key: String, defaultValue: Int): Int {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    return prefs.getInt(key, defaultValue)
+}
+
+private fun setPrefInt(context: Context, key: String, value: Int) {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs.edit().putInt(key, value).apply()
+}
+
+private fun formatTime(hour: Int, minute: Int): String {
+    val ampm = if (hour < 12) "AM" else "PM"
+    val h = when {
+        hour == 0 -> 12
+        hour > 12 -> hour - 12
+        else -> hour
+    }
+    return if (minute == 0) "$h $ampm" else String.format(Locale.getDefault(), "%d:%02d %s", h, minute, ampm)
 }
