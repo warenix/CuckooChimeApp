@@ -12,13 +12,14 @@ class ChimeReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
+        val isTest = intent.getBooleanExtra("TEST_CHIME", false)
         
-        if (action == ACTION_CHIME) {
+        if (action == ACTION_CHIME || isTest) {
             val calendar = Calendar.getInstance()
             
-            if (!isSilentTime(context, calendar)) {
+            if (isTest || !isSilentTime(context, calendar)) {
                 // Calendar.HOUR is 0-11. For 12-hour format, if it's 0, it's 12.
-                var hour = calendar.get(Calendar.HOUR)
+                var hour = if (isTest) 1 else calendar.get(Calendar.HOUR)
                 if (hour == 0) hour = 12
 
                 val serviceIntent = Intent(context, ChimeService::class.java).apply {
@@ -28,8 +29,10 @@ class ChimeReceiver : BroadcastReceiver() {
                 ContextCompat.startForegroundService(context, serviceIntent)
             }
             
-            // Schedule the next one
-            setNextAlarm(context)
+            if (!isTest) {
+                // Schedule the next one only if it's not a test
+                setNextAlarm(context)
+            }
         } else if (action == Intent.ACTION_BOOT_COMPLETED) {
             // After boot, ensure the next alarm is scheduled
             setNextAlarm(context)

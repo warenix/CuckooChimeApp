@@ -1,13 +1,16 @@
 package org.dyndns.warenix.cuckoochime
 
 import android.Manifest
+import android.util.Log
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.app.TimePickerDialog
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.graphics.BlurMaskFilter
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -17,32 +20,36 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -80,7 +87,14 @@ class MainActivity : ComponentActivity() {
                         containerColor = Color.Transparent,
                         modifier = Modifier.fillMaxSize()
                     ) { innerPadding ->
-                        ChimeControlScreen(modifier = Modifier.padding(innerPadding))
+                        Box(
+                            modifier = Modifier
+                                .padding(innerPadding)
+                                .fillMaxSize(),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            ChimeControlScreen()
+                        }
                     }
                 }
             }
@@ -89,9 +103,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ChimeControlScreen(modifier: Modifier = Modifier) {
+fun ChimeControlScreen() {
     val context = LocalContext.current
     var isChimeActive by remember { mutableStateOf(getChimeActivePref(context)) }
+    var isBirdVisible by remember { mutableStateOf(false) }
 
     var silentStartHour by remember { mutableStateOf(getPrefInt(context, KEY_SILENT_START_HOUR, 22)) }
     var silentStartMinute by remember { mutableStateOf(getPrefInt(context, KEY_SILENT_START_MINUTE, 0)) }
@@ -110,33 +125,124 @@ fun ChimeControlScreen(modifier: Modifier = Modifier) {
         checkAndRequestPermissions(context, permissionLauncher)
     }
 
-    Column(
-        modifier = modifier
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == ChimeService.ACTION_BIRD_VISIBILITY) {
+                    val visible = intent.getBooleanExtra(ChimeService.EXTRA_IS_VISIBLE, false)
+                    Log.d("CuckooChime", "Bird visibility changed: $visible")
+                    isBirdVisible = visible
+                }
+            }
+        }
+        val filter = IntentFilter(ChimeService.ACTION_BIRD_VISIBILITY)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            // Use same flag for older versions if possible, but actually RECEIVER_NOT_EXPORTED 
+            // is only available from 33. For older versions, we just register.
+            context.registerReceiver(receiver, filter)
+        }
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
+
+    Box(
+        modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        contentAlignment = Alignment.Center
     ) {
-        CuckooHouseHeader()
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        VintageClockFace()
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Card(
-            modifier = Modifier
-                .width(280.dp)
-                .clip(RoundedCornerShape(24.dp)),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF5D4037)),
-            elevation = CardDefaults.cardElevation(8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+        if (isLandscape) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Button(
-                    onClick = {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    CuckooClockComponent(
+                        isBirdVisible = isBirdVisible,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(32.dp))
+                
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    ControlCard(
+                        isChimeActive = isChimeActive,
+                        onChimeToggle = {
+                            if (isChimeActive) {
+                                stopChime(context)
+                                isChimeActive = false
+                            } else {
+                                if (hasRequiredPermissions(context)) {
+                                    startChime(context)
+                                    isChimeActive = true
+                                } else {
+                                    checkAndRequestPermissions(context, permissionLauncher)
+                                }
+                            }
+                        },
+                        onTestChime = { testChime(context) }
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    SilentHoursSection(
+                        startHour = silentStartHour,
+                        startMinute = silentStartMinute,
+                        endHour = silentEndHour,
+                        endMinute = silentEndMinute,
+                        onStartTimeClick = {
+                            TimePickerDialog(context, { _, h, m ->
+                                silentStartHour = h
+                                silentStartMinute = m
+                                setPrefInt(context, KEY_SILENT_START_HOUR, h)
+                                setPrefInt(context, KEY_SILENT_START_MINUTE, m)
+                            }, silentStartHour, silentStartMinute, false).show()
+                        },
+                        onEndTimeClick = {
+                            TimePickerDialog(context, { _, h, m ->
+                                silentEndHour = h
+                                silentEndMinute = m
+                                setPrefInt(context, KEY_SILENT_END_HOUR, h)
+                                setPrefInt(context, KEY_SILENT_END_MINUTE, m)
+                            }, silentEndHour, silentEndMinute, false).show()
+                        }
+                    )
+                }
+            }
+        } else {
+            // Portrait mode: single scrollable column to avoid infinite height measurement issues with weights
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                CuckooClockComponent(
+                    isBirdVisible = isBirdVisible,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+
+                ControlCard(
+                    isChimeActive = isChimeActive,
+                    onChimeToggle = {
                         if (isChimeActive) {
                             stopChime(context)
                             isChimeActive = false
@@ -149,88 +255,133 @@ fun ChimeControlScreen(modifier: Modifier = Modifier) {
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isChimeActive) Color(0xFFC62828) else Color(0xFF2E7D32)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Notifications, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (isChimeActive) "Stop Chime" else "Start Chime", fontWeight = FontWeight.Bold)
-                }
+                    onTestChime = { testChime(context) }
+                )
+
+                SilentHoursSection(
+                    startHour = silentStartHour,
+                    startMinute = silentStartMinute,
+                    endHour = silentEndHour,
+                    endMinute = silentEndMinute,
+                    onStartTimeClick = {
+                        TimePickerDialog(context, { _, h, m ->
+                            silentStartHour = h
+                            silentStartMinute = m
+                            setPrefInt(context, KEY_SILENT_START_HOUR, h)
+                            setPrefInt(context, KEY_SILENT_START_MINUTE, m)
+                        }, silentStartHour, silentStartMinute, false).show()
+                    },
+                    onEndTimeClick = {
+                        TimePickerDialog(context, { _, h, m ->
+                            silentEndHour = h
+                            silentEndMinute = m
+                            setPrefInt(context, KEY_SILENT_END_HOUR, h)
+                            setPrefInt(context, KEY_SILENT_END_MINUTE, m)
+                        }, silentEndHour, silentEndMinute, false).show()
+                    }
+                )
                 
-                TextButton(onClick = { testChime(context) }) {
-                    Text("Test Chime", color = Color.White.copy(alpha = 0.7f))
-                }
+                // Bottom spacer for better scrolling
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun ControlCard(
+    isChimeActive: Boolean,
+    onChimeToggle: () -> Unit,
+    onTestChime: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .width(280.dp)
+            .clip(RoundedCornerShape(24.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF5D4037)),
+        elevation = CardDefaults.cardElevation(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Button(
+                onClick = onChimeToggle,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isChimeActive) Color(0xFFC62828) else Color(0xFF2E7D32)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Notifications, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (isChimeActive) "Stop Chime" else "Start Chime", fontWeight = FontWeight.Bold)
+            }
+
+            TextButton(onClick = onTestChime) {
+                Text("Test Chime", color = Color.White.copy(alpha = 0.7f))
+            }
+        }
+    }
+}
+
+@Composable
+fun CuckooClockComponent(isBirdVisible: Boolean, modifier: Modifier = Modifier) {
+    BoxWithConstraints(
+        modifier = modifier
+            .aspectRatio(0.7f), // Taller aspect ratio for the house
+        contentAlignment = Alignment.Center
+    ) {
+        val maxWidth = maxWidth
+        val maxHeight = maxHeight
+        
+        // Calculate relative sizes and offsets based on the container size
+        // These ratios are tuned to the clock_body.png artwork
+        val clockFaceSize = maxWidth * 0.65f
+        val clockFaceYOffset = maxHeight * 0.12f
+        val birdSize = maxWidth * 0.15f
+        val birdYOffset = maxHeight * 0.05f
+
+        // 1. Clock Body (Bottom Layer)
+        Image(
+            painter = painterResource(id = R.drawable.clock_body),
+            contentDescription = "Clock Body",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Fit
+        )
+
+        // 2. Cuckoo Bird (Inside upper window)
+        Box(
+            modifier = Modifier
+                .size(birdSize * 2f, birdSize * 1.5f)
+                .align(Alignment.TopCenter)
+                .offset(y = birdYOffset),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            AnimatedVisibility(
+                visible = isBirdVisible,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.cuckoo_bird),
+                    contentDescription = "Cuckoo Bird",
+                    modifier = Modifier.size(birdSize),
+                    contentScale = ContentScale.Fit
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        SilentHoursSection(
-            startHour = silentStartHour,
-            startMinute = silentStartMinute,
-            endHour = silentEndHour,
-            endMinute = silentEndMinute,
-            onStartTimeClick = {
-                TimePickerDialog(context, { _, h, m ->
-                    silentStartHour = h
-                    silentStartMinute = m
-                    setPrefInt(context, KEY_SILENT_START_HOUR, h)
-                    setPrefInt(context, KEY_SILENT_START_MINUTE, m)
-                }, silentStartHour, silentStartMinute, false).show()
-            },
-            onEndTimeClick = {
-                TimePickerDialog(context, { _, h, m ->
-                    silentEndHour = h
-                    silentEndMinute = m
-                    setPrefInt(context, KEY_SILENT_END_HOUR, h)
-                    setPrefInt(context, KEY_SILENT_END_MINUTE, m)
-                }, silentEndHour, silentEndMinute, false).show()
-            }
+        // 3. Clock Face (Centered in the large circular hole)
+        VintageClockFace(
+            modifier = Modifier
+                .size(clockFaceSize)
+                .offset(y = clockFaceYOffset)
         )
     }
 }
 
 @Composable
-fun CuckooHouseHeader() {
-    val houseShape = GenericShape { size, _ ->
-        moveTo(size.width / 2f, 0f)
-        lineTo(size.width, size.height * 0.4f)
-        lineTo(size.width, size.height)
-        lineTo(0f, size.height)
-        lineTo(0f, size.height * 0.4f)
-        close()
-    }
-
-    Box(
-        modifier = Modifier
-            .size(160.dp, 180.dp)
-            .clip(houseShape)
-            .background(Color(0xFF3E2723)),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        // Circular window
-        Box(
-            modifier = Modifier
-                .padding(bottom = 40.dp)
-                .size(80.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF1B1B1B)),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.mipmap.ic_launcher_foreground),
-                contentDescription = "Cuckoo Bird",
-                modifier = Modifier.size(60.dp),
-                contentScale = ContentScale.Fit
-            )
-        }
-    }
-}
-
-@Composable
-fun VintageClockFace() {
+fun VintageClockFace(modifier: Modifier = Modifier) {
     var currentTime by remember { mutableStateOf(Calendar.getInstance()) }
 
     LaunchedEffect(Unit) {
@@ -244,35 +395,19 @@ fun VintageClockFace() {
     val clockColor = Color(0xFFFFF9C4) // Cream
     val goldColor = Color(0xFFFFD700)
 
-    Box(
+    BoxWithConstraints(
         contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(260.dp)
-            .drawBehind {
-                // Inner shadow effect
-                drawCircle(
-                    color = Color.Black.copy(alpha = 0.3f),
-                    radius = size.minDimension / 2,
-                    style = Stroke(width = 10.dp.toPx())
-                )
-            }
+        modifier = modifier
             .clip(CircleShape)
-            .background(Color(0xFF4E342E)) // Dark Wood
+            .background(Color(0xFF3E2723).copy(alpha = 0.2f)) // Lighter background
     ) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+        val faceRadius = maxWidth / 2
+        val numeralRadius = faceRadius * 0.75f
+        val fontSize = (maxWidth.value / 16).sp
+
+        Canvas(modifier = Modifier.fillMaxSize().padding(faceRadius * 0.1f)) {
             val radius = size.minDimension / 2
             val center = Offset(size.width / 2, size.height / 2)
-
-            // Draw numerals
-            romanNumerals.forEachIndexed { index, text ->
-                val angle = (index * 30.0) - 90.0
-                val x = center.x + (radius - 25.dp.toPx()) * cos(Math.toRadians(angle)).toFloat()
-                val y = center.y + (radius - 25.dp.toPx()) * sin(Math.toRadians(angle)).toFloat()
-                
-                // Simplified text drawing using native canvas for better control if needed, 
-                // but for this example we'll just use points as placeholders or a small circle
-                drawCircle(clockColor, 2.dp.toPx(), Offset(x, y))
-            }
 
             // Hands
             val hours = currentTime.get(Calendar.HOUR)
@@ -284,8 +419,8 @@ fun VintageClockFace() {
                 drawLine(
                     color = goldColor,
                     start = center,
-                    end = Offset(center.x, center.y - radius * 0.5f),
-                    strokeWidth = 4.dp.toPx(),
+                    end = Offset(center.x, center.y - radius * 0.55f),
+                    strokeWidth = radius * 0.05f,
                     cap = StrokeCap.Round
                 )
             }
@@ -295,17 +430,17 @@ fun VintageClockFace() {
                 drawLine(
                     color = goldColor,
                     start = center,
-                    end = Offset(center.x, center.y - radius * 0.7f),
-                    strokeWidth = 3.dp.toPx(),
+                    end = Offset(center.x, center.y - radius * 0.8f),
+                    strokeWidth = radius * 0.03f,
                     cap = StrokeCap.Round
                 )
             }
 
             // Center pin
-            drawCircle(goldColor, 5.dp.toPx(), center)
+            drawCircle(goldColor, radius * 0.05f, center)
         }
         
-        // Overlay Roman Numerals (Text needs to be outside Canvas for Compose ease or use drawText)
+        // Overlay Roman Numerals
         Box(modifier = Modifier.fillMaxSize()) {
            romanNumerals.forEachIndexed { index, text ->
                val angle = (index * 30.0) - 90.0
@@ -313,11 +448,12 @@ fun VintageClockFace() {
                    Text(
                        text = text,
                        color = clockColor,
-                       fontSize = 14.sp,
+                       fontSize = fontSize,
                        fontFamily = FontFamily.Serif,
+                       fontWeight = FontWeight.Bold,
                        modifier = Modifier.offset(
-                           x = (100.dp * cos(Math.toRadians(angle)).toFloat()),
-                           y = (100.dp * sin(Math.toRadians(angle)).toFloat())
+                           x = (numeralRadius * cos(Math.toRadians(angle)).toFloat()),
+                           y = (numeralRadius * sin(Math.toRadians(angle)).toFloat())
                        )
                    )
                }
@@ -335,71 +471,178 @@ fun SilentHoursSection(
     onStartTimeClick: () -> Unit,
     onEndTimeClick: () -> Unit
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color.White.copy(alpha = 0.05f))
-            .padding(16.dp)
+            .padding(horizontal = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B1B1B).copy(alpha = 0.6f)),
+        shape = RoundedCornerShape(24.dp)
     ) {
-        Text(
-            text = "Silent Hours",
-            style = TextStyle(
-                fontFamily = FontFamily.Serif,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = "Shhh... ${formatTime(startHour, startMinute)} to ${formatTime(endHour, endMinute)}",
-            style = TextStyle(fontFamily = FontFamily.Serif, color = Color.White.copy(alpha = 0.8f))
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            SilentButton(
-                icon = Icons.Default.WbSunny,
-                label = "From",
-                onClick = onStartTimeClick
+            Text(
+                "Silent Hours",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
             )
-            SilentButton(
-                icon = Icons.Default.NightlightRound,
-                label = "Until",
-                onClick = onEndTimeClick
+            
+            Text(
+                "Shhh... ${formatTime(startHour, startMinute)} to ${formatTime(endHour, endMinute)}",
+                color = Color.White.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodyMedium
             )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                OutlinedButton(
+                    onClick = onStartTimeClick,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.WbSunny, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("From", color = Color.White)
+                }
+                
+                OutlinedButton(
+                    onClick = onEndTimeClick,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.NightlightRound, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Until", color = Color.White)
+                }
+            }
         }
     }
 }
 
-@Composable
-fun SilentButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(label, fontFamily = FontFamily.Serif)
+fun formatTime(hour: Int, minute: Int): String {
+    val cal = Calendar.getInstance()
+    cal.set(Calendar.HOUR_OF_DAY, hour)
+    cal.set(Calendar.MINUTE, minute)
+    return java.text.SimpleDateFormat("h:mm a", Locale.getDefault()).format(cal.time)
+}
+
+fun getChimeActivePref(context: Context): Boolean {
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getBoolean(KEY_CHIME_ACTIVE, false)
+}
+
+fun setChimeActivePref(context: Context, active: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(KEY_CHIME_ACTIVE, active)
+        .apply()
+}
+
+fun getPrefInt(context: Context, key: String, defaultValue: Int): Int {
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getInt(key, defaultValue)
+}
+
+fun setPrefInt(context: Context, key: String, value: Int) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putInt(key, value)
+        .apply()
+}
+
+fun startChime(context: Context) {
+    setChimeActivePref(context, true)
+    scheduleChime(context)
+}
+
+fun stopChime(context: Context) {
+    setChimeActivePref(context, false)
+    val intent = Intent(context, ChimeReceiver::class.java)
+    val pendingIntent = PendingIntent.getBroadcast(
+        context, 0, intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    alarmManager.cancel(pendingIntent)
+}
+
+fun scheduleChime(context: Context) {
+    val intent = Intent(context, ChimeReceiver::class.java)
+    val pendingIntent = PendingIntent.getBroadcast(
+        context, 0, intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    
+    // Set for the next full hour
+    val calendar = Calendar.getInstance().apply {
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        add(Calendar.HOUR_OF_DAY, 1)
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (alarmManager.canScheduleExactAlarms()) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                calendar.timeInMillis,
+                pendingIntent
+            )
+        } else {
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                calendar.timeInMillis,
+                pendingIntent
+            )
+        }
+    } else {
+        alarmManager.setExactAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP,
+            calendar.timeInMillis,
+            pendingIntent
+        )
     }
 }
 
-private fun checkAndRequestPermissions(context: Context, launcher: androidx.activity.result.ActivityResultLauncher<String>) {
+fun testChime(context: Context) {
+    val intent = Intent(context, ChimeReceiver::class.java).apply {
+        putExtra("TEST_CHIME", true)
+    }
+    context.sendBroadcast(intent)
+}
+
+fun hasRequiredPermissions(context: Context): Boolean {
+    val notificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    } else {
+        true
+    }
+    
+    val alarmPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        alarmManager.canScheduleExactAlarms()
+    } else {
+        true
+    }
+    
+    return notificationPermission && alarmPermission
+}
+
+fun checkAndRequestPermissions(context: Context, launcher: androidx.activity.result.ActivityResultLauncher<String>) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
+    
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         if (!alarmManager.canScheduleExactAlarms()) {
@@ -407,68 +650,4 @@ private fun checkAndRequestPermissions(context: Context, launcher: androidx.acti
             context.startActivity(intent)
         }
     }
-}
-
-private fun hasRequiredPermissions(context: Context): Boolean {
-    val notificationsGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-    } else true
-    val exactAlarmGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        alarmManager.canScheduleExactAlarms()
-    } else true
-    return notificationsGranted && exactAlarmGranted
-}
-
-private fun startChime(context: Context) {
-    ChimeReceiver().setNextAlarm(context)
-    setChimeActivePref(context, true)
-}
-
-private fun stopChime(context: Context) {
-    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    val intent = Intent(context, ChimeReceiver::class.java).apply { action = ChimeReceiver.ACTION_CHIME }
-    val pendingIntent = PendingIntent.getBroadcast(context, 1001, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    alarmManager.cancel(pendingIntent)
-    pendingIntent.cancel()
-    context.stopService(Intent(context, ChimeService::class.java))
-    setChimeActivePref(context, false)
-}
-
-private fun testChime(context: Context) {
-    val intent = Intent(context, ChimeService::class.java).apply {
-        action = ChimeService.ACTION_PLAY_CHIME
-        putExtra(ChimeService.EXTRA_CHIME_COUNT, 3)
-    }
-    ContextCompat.startForegroundService(context, intent)
-}
-
-private fun getChimeActivePref(context: Context): Boolean {
-    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    return prefs.getBoolean(KEY_CHIME_ACTIVE, false)
-}
-
-private fun setChimeActivePref(context: Context, active: Boolean) {
-    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    prefs.edit().putBoolean(KEY_CHIME_ACTIVE, active).apply()
-}
-
-private fun getPrefInt(context: Context, key: String, defaultValue: Int): Int {
-    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    return prefs.getInt(key, defaultValue)
-}
-
-private fun setPrefInt(context: Context, key: String, value: Int) {
-    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    prefs.edit().putInt(key, value).apply()
-}
-
-private fun formatTime(hour: Int, minute: Int): String {
-    val ampm = if (hour < 12) "AM" else "PM"
-    val h = when {
-        hour == 0 -> 12
-        hour > 12 -> hour - 12
-        else -> hour
-    }
-    return if (minute == 0) "$h $ampm" else String.format(Locale.getDefault(), "%d:%02d %s", h, minute, ampm)
 }

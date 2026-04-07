@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "org.dyndns.warenix.cuckoochime"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.dyndns.warenix.cuckoochime"
         minSdk = 30
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 

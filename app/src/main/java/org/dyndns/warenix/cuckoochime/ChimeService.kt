@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import android.util.Log
 import kotlinx.coroutines.*
 import kotlin.coroutines.resume
 
@@ -56,25 +57,40 @@ class ChimeService : Service() {
 
     private suspend fun playChimes(count: Int) {
         repeat(count) { i ->
+            Log.d("CuckooChime", "Bird show $i")
+            sendBirdVisibility(true)
+            delay(500) // Minimum time for bird to be out before sound
             playSingleChime()
+            delay(500) // Minimum time for bird to stay out after sound
+            Log.d("CuckooChime", "Bird hide $i")
+            sendBirdVisibility(false)
             if (i < count - 1) {
-                delay(1500) // 1.5 second delay between chimes
+                delay(800) // Pause between chimes
             }
         }
+        delay(1000) // Final wait for hide animation
+    }
+
+    private fun sendBirdVisibility(isVisible: Boolean) {
+        val intent = Intent(ACTION_BIRD_VISIBILITY).apply {
+            putExtra(EXTRA_IS_VISIBLE, isVisible)
+            setPackage(packageName)
+        }
+        sendBroadcast(intent)
     }
 
     private suspend fun playSingleChime() = suspendCancellableCoroutine<Unit> { continuation ->
         mediaPlayer?.release()
         
-        // Note: R.raw.cuckoo must exist for this to compile correctly.
-        // If it shows an error in the IDE, please ensure res/raw/cuckoo.mp3 is created.
         val mp: MediaPlayer? = try {
             MediaPlayer.create(this as Context, R.raw.cuckoo)
         } catch (e: Exception) {
+            Log.e("CuckooChime", "Failed to create MediaPlayer", e)
             null
         }
 
         if (mp == null) {
+            Log.e("CuckooChime", "MediaPlayer is null")
             if (continuation.isActive) continuation.resume(Unit)
             return@suspendCancellableCoroutine
         }
@@ -82,6 +98,7 @@ class ChimeService : Service() {
         mediaPlayer = mp
         
         mp.setOnCompletionListener { player: MediaPlayer ->
+            Log.d("CuckooChime", "Chime completed")
             player.release()
             if (mediaPlayer == player) {
                 mediaPlayer = null
@@ -89,7 +106,8 @@ class ChimeService : Service() {
             if (continuation.isActive) continuation.resume(Unit)
         }
         
-        mp.setOnErrorListener { player: MediaPlayer, _: Int, _: Int ->
+        mp.setOnErrorListener { player: MediaPlayer, what: Int, extra: Int ->
+            Log.e("CuckooChime", "MediaPlayer error: $what, $extra")
             player.release()
             if (mediaPlayer == player) {
                 mediaPlayer = null
@@ -99,6 +117,7 @@ class ChimeService : Service() {
         }
         
         mp.start()
+        Log.d("CuckooChime", "Chime started")
         
         continuation.invokeOnCancellation {
             mp.release()
@@ -145,5 +164,7 @@ class ChimeService : Service() {
         const val NOTIFICATION_ID = 1
         const val EXTRA_CHIME_COUNT = "EXTRA_CHIME_COUNT"
         const val ACTION_PLAY_CHIME = "ACTION_PLAY_CHIME"
+        const val ACTION_BIRD_VISIBILITY = "org.dyndns.warenix.cuckoochime.ACTION_BIRD_VISIBILITY"
+        const val EXTRA_IS_VISIBLE = "EXTRA_IS_VISIBLE"
     }
 }
