@@ -6,13 +6,13 @@ plugins {
 
 android {
     namespace = "org.dyndns.warenix.cuckoochime"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "org.dyndns.warenix.cuckoochime"
         minSdk = 30
-        targetSdk = 36
-        versionCode = 1
+        targetSdk = 35
+        versionCode = 2
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -20,7 +20,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true // Usually true for release
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

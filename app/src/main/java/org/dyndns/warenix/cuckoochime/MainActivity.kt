@@ -557,29 +557,37 @@ fun setPrefInt(context: Context, key: String, value: Int) {
 }
 
 fun startChime(context: Context) {
-    setChimeActivePref(context, true)
-    scheduleChime(context)
+    val appContext = context.applicationContext
+    setChimeActivePref(appContext, true)
+    scheduleChime(appContext)
 }
 
 fun stopChime(context: Context) {
-    setChimeActivePref(context, false)
-    val intent = Intent(context, ChimeReceiver::class.java)
+    val appContext = context.applicationContext
+    setChimeActivePref(appContext, false)
+    val intent = Intent(appContext, ChimeReceiver::class.java).apply {
+        setPackage(appContext.packageName)
+    }
     val pendingIntent = PendingIntent.getBroadcast(
-        context, 0, intent,
+        appContext, ChimeReceiver.ALARM_REQUEST_CODE, intent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
-    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     alarmManager.cancel(pendingIntent)
 }
 
 fun scheduleChime(context: Context) {
-    val intent = Intent(context, ChimeReceiver::class.java)
+    val appContext = context.applicationContext
+    val intent = Intent(appContext, ChimeReceiver::class.java).apply {
+        action = ChimeReceiver.ACTION_CHIME
+        setPackage(appContext.packageName)
+    }
     val pendingIntent = PendingIntent.getBroadcast(
-        context, 0, intent,
+        appContext, ChimeReceiver.ALARM_REQUEST_CODE, intent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
-    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     
     // Set for the next full hour
     val calendar = Calendar.getInstance().apply {
@@ -613,10 +621,12 @@ fun scheduleChime(context: Context) {
 }
 
 fun testChime(context: Context) {
-    val intent = Intent(context, ChimeReceiver::class.java).apply {
+    val appContext = context.applicationContext
+    val intent = Intent(appContext, ChimeReceiver::class.java).apply {
         putExtra("TEST_CHIME", true)
+        setPackage(appContext.packageName)
     }
-    context.sendBroadcast(intent)
+    appContext.sendBroadcast(intent)
 }
 
 fun hasRequiredPermissions(context: Context): Boolean {

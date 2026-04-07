@@ -7,11 +7,12 @@ import android.content.Intent
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            val prefs = context.getSharedPreferences("CuckooChimePrefs", Context.MODE_PRIVATE)
+            val appContext = context.applicationContext
+            val prefs = appContext.getSharedPreferences("CuckooChimePrefs", Context.MODE_PRIVATE)
             val isChimeActive = prefs.getBoolean("chime_active", false)
             
             if (isChimeActive) {
-                ChimeReceiver().setNextAlarm(context)
+                ChimeReceiver().setNextAlarm(appContext)
             }
         }
     }

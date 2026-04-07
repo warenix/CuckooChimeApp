@@ -13,29 +13,31 @@ class ChimeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
         val isTest = intent.getBooleanExtra("TEST_CHIME", false)
+        val appContext = context.applicationContext
         
         if (action == ACTION_CHIME || isTest) {
             val calendar = Calendar.getInstance()
             
-            if (isTest || !isSilentTime(context, calendar)) {
+            if (isTest || !isSilentTime(appContext, calendar)) {
                 // Calendar.HOUR is 0-11. For 12-hour format, if it's 0, it's 12.
                 var hour = if (isTest) 1 else calendar.get(Calendar.HOUR)
                 if (hour == 0) hour = 12
 
-                val serviceIntent = Intent(context, ChimeService::class.java).apply {
+                val serviceIntent = Intent(appContext, ChimeService::class.java).apply {
                     putExtra(ChimeService.EXTRA_CHIME_COUNT, hour)
                     this.action = ChimeService.ACTION_PLAY_CHIME
+                    setPackage(appContext.packageName)
                 }
-                ContextCompat.startForegroundService(context, serviceIntent)
+                ContextCompat.startForegroundService(appContext, serviceIntent)
             }
             
             if (!isTest) {
                 // Schedule the next one only if it's not a test
-                setNextAlarm(context)
+                setNextAlarm(appContext)
             }
         } else if (action == Intent.ACTION_BOOT_COMPLETED) {
             // After boot, ensure the next alarm is scheduled
-            setNextAlarm(context)
+            setNextAlarm(appContext)
         }
     }
 
@@ -62,7 +64,8 @@ class ChimeReceiver : BroadcastReceiver() {
     }
 
     fun setNextAlarm(context: Context) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val appContext = context.applicationContext
+        val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         
         // Calculate the start of the next hour
         val nextHour = Calendar.getInstance().apply {
@@ -72,12 +75,13 @@ class ChimeReceiver : BroadcastReceiver() {
             set(Calendar.MILLISECOND, 0)
         }
 
-        val intent = Intent(context, ChimeReceiver::class.java).apply {
+        val intent = Intent(appContext, ChimeReceiver::class.java).apply {
             action = ACTION_CHIME
+            setPackage(appContext.packageName)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
-            context,
+            appContext,
             ALARM_REQUEST_CODE,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -99,6 +103,6 @@ class ChimeReceiver : BroadcastReceiver() {
 
     companion object {
         const val ACTION_CHIME = "org.dyndns.warenix.cuckoochime.ACTION_CHIME"
-        private const val ALARM_REQUEST_CODE = 1001
+        const val ALARM_REQUEST_CODE = 1001
     }
 }
