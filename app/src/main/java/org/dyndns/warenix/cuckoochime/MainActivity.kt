@@ -597,26 +597,23 @@ fun scheduleChime(context: Context) {
         add(Calendar.HOUR_OF_DAY, 1)
     }
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        if (alarmManager.canScheduleExactAlarms()) {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                calendar.timeInMillis,
-                pendingIntent
-            )
-        } else {
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                calendar.timeInMillis,
-                pendingIntent
-            )
-        }
-    } else {
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            calendar.timeInMillis,
-            pendingIntent
-        )
+    // Create a PendingIntent that opens MainActivity when the user clicks the alarm icon
+    val showIntent = Intent(appContext, MainActivity::class.java).apply {
+        setPackage(appContext.packageName)
+    }
+    val showOperation = PendingIntent.getActivity(
+        appContext,
+        0,
+        showIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val alarmClockInfo = AlarmManager.AlarmClockInfo(calendar.timeInMillis, showOperation)
+
+    try {
+        alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+    } catch (e: SecurityException) {
+        e.printStackTrace()
     }
 }
 

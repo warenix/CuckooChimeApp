@@ -87,14 +87,22 @@ class ChimeReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Android 14+ requires SCHEDULE_EXACT_ALARM permission, which we added to manifest.
-        // setExactAndAllowWhileIdle ensures it fires even in Doze mode.
+        // Create a PendingIntent that opens MainActivity when the user clicks the alarm icon
+        val showIntent = Intent(appContext, MainActivity::class.java).apply {
+            setPackage(appContext.packageName)
+        }
+        val showOperation = PendingIntent.getActivity(
+            appContext,
+            0,
+            showIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val alarmClockInfo = AlarmManager.AlarmClockInfo(nextHour.timeInMillis, showOperation)
+
+        // setAlarmClock() is the most precise way to schedule an alarm and helps bypass battery optimizations/batching
         try {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                nextHour.timeInMillis,
-                pendingIntent
-            )
+            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
         } catch (e: SecurityException) {
             // Handle cases where exact alarm permission is denied at runtime (if applicable)
             e.printStackTrace()
