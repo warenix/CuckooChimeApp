@@ -31,6 +31,7 @@ class ChimeService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val chimeCount = intent?.getIntExtra(EXTRA_CHIME_COUNT, 1) ?: 1
+        val soundResId = intent?.getIntExtra(EXTRA_SOUND_RES_ID, R.raw.cuckoo) ?: R.raw.cuckoo
         
         // Start foreground immediately to satisfy Android 14+ requirements
         val notification = createNotification(chimeCount)
@@ -48,7 +49,7 @@ class ChimeService : Service() {
         
         serviceScope.launch {
             try {
-                playChimes(chimeCount)
+                playChimes(chimeCount, soundResId)
             } finally {
                 stopSelf()
             }
@@ -64,12 +65,12 @@ class ChimeService : Service() {
         }
     }
 
-    private suspend fun playChimes(count: Int) {
+    private suspend fun playChimes(count: Int, soundResId: Int) {
         repeat(count) { i ->
             Log.d("CuckooChime", "Bird show $i")
             sendBirdVisibility(true)
             delay(500) // Minimum time for bird to be out before sound
-            playSingleChime()
+            playSingleChime(soundResId)
             delay(500) // Minimum time for bird to stay out after sound
             Log.d("CuckooChime", "Bird hide $i")
             sendBirdVisibility(false)
@@ -88,11 +89,11 @@ class ChimeService : Service() {
         sendBroadcast(intent)
     }
 
-    private suspend fun playSingleChime() = suspendCancellableCoroutine<Unit> { continuation ->
+    private suspend fun playSingleChime(soundResId: Int) = suspendCancellableCoroutine<Unit> { continuation ->
         mediaPlayer?.release()
         
         val mp: MediaPlayer? = try {
-            MediaPlayer.create(this as Context, R.raw.cuckoo)
+            MediaPlayer.create(this as Context, soundResId)
         } catch (e: Exception) {
             Log.e("CuckooChime", "Failed to create MediaPlayer", e)
             null
@@ -172,6 +173,7 @@ class ChimeService : Service() {
         const val CHANNEL_ID = "ChimeServiceChannel"
         const val NOTIFICATION_ID = 1
         const val EXTRA_CHIME_COUNT = "EXTRA_CHIME_COUNT"
+        const val EXTRA_SOUND_RES_ID = "EXTRA_SOUND_RES_ID"
         const val ACTION_PLAY_CHIME = "ACTION_PLAY_CHIME"
         const val ACTION_BIRD_VISIBILITY = "org.dyndns.warenix.cuckoochime.ACTION_BIRD_VISIBILITY"
         const val EXTRA_IS_VISIBLE = "EXTRA_IS_VISIBLE"

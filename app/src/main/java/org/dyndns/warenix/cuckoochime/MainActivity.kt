@@ -63,6 +63,7 @@ import kotlin.math.sin
 
 private const val PREFS_NAME = "CuckooChimePrefs"
 private const val KEY_CHIME_ACTIVE = "chime_active"
+private const val KEY_SELECTED_SOUND_RES_ID = "selected_sound_res_id"
 private const val KEY_SILENT_START_HOUR = "silent_start_hour"
 private const val KEY_SILENT_START_MINUTE = "silent_start_minute"
 private const val KEY_SILENT_END_HOUR = "silent_end_hour"
@@ -112,6 +113,8 @@ fun ChimeControlScreen() {
     var silentStartMinute by remember { mutableStateOf(getPrefInt(context, KEY_SILENT_START_MINUTE, 0)) }
     var silentEndHour by remember { mutableStateOf(getPrefInt(context, KEY_SILENT_END_HOUR, 7)) }
     var silentEndMinute by remember { mutableStateOf(getPrefInt(context, KEY_SILENT_END_MINUTE, 0)) }
+
+    var selectedSoundResId by remember { mutableStateOf(getPrefInt(context, KEY_SELECTED_SOUND_RES_ID, R.raw.cuckoo)) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -221,6 +224,16 @@ fun ChimeControlScreen() {
                             }, silentEndHour, silentEndMinute, false).show()
                         }
                     )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    SoundSelectionSection(
+                        selectedResId = selectedSoundResId,
+                        onSoundSelected = { resId ->
+                            selectedSoundResId = resId
+                            setPrefInt(context, KEY_SELECTED_SOUND_RES_ID, resId)
+                        }
+                    )
                 }
             }
         } else {
@@ -278,6 +291,14 @@ fun ChimeControlScreen() {
                             setPrefInt(context, KEY_SILENT_END_HOUR, h)
                             setPrefInt(context, KEY_SILENT_END_MINUTE, m)
                         }, silentEndHour, silentEndMinute, false).show()
+                    }
+                )
+
+                SoundSelectionSection(
+                    selectedResId = selectedSoundResId,
+                    onSoundSelected = { resId ->
+                        selectedSoundResId = resId
+                        setPrefInt(context, KEY_SELECTED_SOUND_RES_ID, resId)
                     }
                 )
                 
@@ -521,6 +542,80 @@ fun SilentHoursSection(
                     Text("Until", color = Color.White)
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun SoundSelectionSection(
+    selectedResId: Int,
+    onSoundSelected: (Int) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B1B1B).copy(alpha = 0.6f)),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Choose Cuckoo Sound",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SoundOptionRow(
+                    label = "Cuckoo 1 (Classic)",
+                    isSelected = selectedResId == R.raw.cuckoo,
+                    onClick = { onSoundSelected(R.raw.cuckoo) }
+                )
+                SoundOptionRow(
+                    label = "Cuckoo 2 (Clock)",
+                    isSelected = selectedResId == R.raw.cuckoo_clock,
+                    onClick = { onSoundSelected(R.raw.cuckoo_clock) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SoundOptionRow(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        color = if (isSelected) Color(0xFF2E7D32).copy(alpha = 0.3f) else Color.Transparent,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, if (isSelected) Color(0xFF2E7D32) else Color.White.copy(alpha = 0.1f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(label, color = Color.White)
+            RadioButton(
+                selected = isSelected,
+                onClick = null, // Surface handles click
+                colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF2E7D32))
+            )
         }
     }
 }

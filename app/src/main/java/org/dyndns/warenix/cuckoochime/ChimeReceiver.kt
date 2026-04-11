@@ -23,8 +23,12 @@ class ChimeReceiver : BroadcastReceiver() {
                 var hour = if (isTest) 1 else calendar.get(Calendar.HOUR)
                 if (hour == 0) hour = 12
 
+                val prefs = appContext.getSharedPreferences("CuckooChimePrefs", Context.MODE_PRIVATE)
+                val soundResId = prefs.getInt("selected_sound_res_id", R.raw.cuckoo)
+
                 val serviceIntent = Intent(appContext, ChimeService::class.java).apply {
                     putExtra(ChimeService.EXTRA_CHIME_COUNT, hour)
+                    putExtra(ChimeService.EXTRA_SOUND_RES_ID, soundResId)
                     this.action = ChimeService.ACTION_PLAY_CHIME
                     setPackage(appContext.packageName)
                 }
