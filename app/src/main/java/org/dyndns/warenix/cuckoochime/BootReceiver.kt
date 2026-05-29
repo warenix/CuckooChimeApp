@@ -12,7 +12,7 @@ class BootReceiver : BroadcastReceiver() {
             val isChimeActive = prefs.getBoolean("chime_active", false)
             
             if (isChimeActive) {
-                ChimeReceiver().setNextAlarm(appContext)
+                ChimeReceiver.setNextAlarm(appContext)
             }
         }
     }

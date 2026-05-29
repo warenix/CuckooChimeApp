@@ -5,6 +5,7 @@ import android.util.Log
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.app.TimePickerDialog
+import android.media.MediaPlayer
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -37,6 +38,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -68,6 +70,16 @@ private const val KEY_SILENT_START_HOUR = "silent_start_hour"
 private const val KEY_SILENT_START_MINUTE = "silent_start_minute"
 private const val KEY_SILENT_END_HOUR = "silent_end_hour"
 private const val KEY_SILENT_END_MINUTE = "silent_end_minute"
+
+data class SoundOption(val name: String, val resId: Int)
+
+val AvailableSounds = listOf(
+    SoundOption("Cuckoo 1 (Classic)", R.raw.cuckoo),
+    SoundOption("Cuckoo 2 (Clock)", R.raw.cuckoo_clock),
+    SoundOption("Ding", R.raw.ding),
+    SoundOption("Sweet Bird Chirping", R.raw.sweet_bird_chirping),
+    SoundOption("Bird Singing", R.raw.bird_singing)
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -232,7 +244,8 @@ fun ChimeControlScreen() {
                         onSoundSelected = { resId ->
                             selectedSoundResId = resId
                             setPrefInt(context, KEY_SELECTED_SOUND_RES_ID, resId)
-                        }
+                        },
+                        onPreviewSound = { resId -> playPreviewSound(context, resId) }
                     )
                 }
             }
@@ -299,7 +312,8 @@ fun ChimeControlScreen() {
                     onSoundSelected = { resId ->
                         selectedSoundResId = resId
                         setPrefInt(context, KEY_SELECTED_SOUND_RES_ID, resId)
-                    }
+                    },
+                    onPreviewSound = { resId -> playPreviewSound(context, resId) }
                 )
                 
                 // Bottom spacer for better scrolling
@@ -549,7 +563,8 @@ fun SilentHoursSection(
 @Composable
 fun SoundSelectionSection(
     selectedResId: Int,
-    onSoundSelected: (Int) -> Unit
+    onSoundSelected: (Int) -> Unit,
+    onPreviewSound: (Int) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -575,16 +590,14 @@ fun SoundSelectionSection(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                SoundOptionRow(
-                    label = "Cuckoo 1 (Classic)",
-                    isSelected = selectedResId == R.raw.cuckoo,
-                    onClick = { onSoundSelected(R.raw.cuckoo) }
-                )
-                SoundOptionRow(
-                    label = "Cuckoo 2 (Clock)",
-                    isSelected = selectedResId == R.raw.cuckoo_clock,
-                    onClick = { onSoundSelected(R.raw.cuckoo_clock) }
-                )
+                AvailableSounds.forEach { sound ->
+                    SoundOptionRow(
+                        label = sound.name,
+                        isSelected = selectedResId == sound.resId,
+                        onClick = { onSoundSelected(sound.resId) },
+                        onPreviewClick = { onPreviewSound(sound.resId) }
+                    )
+                }
             }
         }
     }
@@ -594,7 +607,8 @@ fun SoundSelectionSection(
 fun SoundOptionRow(
     label: String,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onPreviewClick: () -> Unit
 ) {
     Surface(
         onClick = onClick,
@@ -605,18 +619,49 @@ fun SoundOptionRow(
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
                 .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(label, color = Color.White)
+            IconButton(onClick = onPreviewClick) {
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = "Preview Sound",
+                    tint = Color.White
+                )
+            }
+            
+            Text(
+                label, 
+                color = Color.White,
+                modifier = Modifier.weight(1f)
+            )
+            
             RadioButton(
                 selected = isSelected,
                 onClick = null, // Surface handles click
                 colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF2E7D32))
             )
         }
+    }
+}
+
+private var previewMediaPlayer: MediaPlayer? = null
+
+fun playPreviewSound(context: Context, resId: Int) {
+    try {
+        previewMediaPlayer?.stop()
+        previewMediaPlayer?.release()
+        
+        previewMediaPlayer = MediaPlayer.create(context, resId).apply {
+            setOnCompletionListener { 
+                it.release()
+                if (previewMediaPlayer == it) previewMediaPlayer = null
+            }
+            start()
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
     }
 }
 
@@ -654,13 +699,14 @@ fun setPrefInt(context: Context, key: String, value: Int) {
 fun startChime(context: Context) {
     val appContext = context.applicationContext
     setChimeActivePref(appContext, true)
-    scheduleChime(appContext)
+    ChimeReceiver.setNextAlarm(appContext)
 }
 
 fun stopChime(context: Context) {
     val appContext = context.applicationContext
     setChimeActivePref(appContext, false)
     val intent = Intent(appContext, ChimeReceiver::class.java).apply {
+        action = ChimeReceiver.ACTION_CHIME
         setPackage(appContext.packageName)
     }
     val pendingIntent = PendingIntent.getBroadcast(
@@ -671,50 +717,10 @@ fun stopChime(context: Context) {
     alarmManager.cancel(pendingIntent)
 }
 
-fun scheduleChime(context: Context) {
-    val appContext = context.applicationContext
-    val intent = Intent(appContext, ChimeReceiver::class.java).apply {
-        action = ChimeReceiver.ACTION_CHIME
-        setPackage(appContext.packageName)
-    }
-    val pendingIntent = PendingIntent.getBroadcast(
-        appContext, ChimeReceiver.ALARM_REQUEST_CODE, intent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-
-    val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    
-    // Set for the next full hour
-    val calendar = Calendar.getInstance().apply {
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-        add(Calendar.HOUR_OF_DAY, 1)
-    }
-
-    // Create a PendingIntent that opens MainActivity when the user clicks the alarm icon
-    val showIntent = Intent(appContext, MainActivity::class.java).apply {
-        setPackage(appContext.packageName)
-    }
-    val showOperation = PendingIntent.getActivity(
-        appContext,
-        0,
-        showIntent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-
-    val alarmClockInfo = AlarmManager.AlarmClockInfo(calendar.timeInMillis, showOperation)
-
-    try {
-        alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
-    } catch (e: SecurityException) {
-        e.printStackTrace()
-    }
-}
-
 fun testChime(context: Context) {
     val appContext = context.applicationContext
     val intent = Intent(appContext, ChimeReceiver::class.java).apply {
+        action = ChimeReceiver.ACTION_CHIME
         putExtra("TEST_CHIME", true)
         setPackage(appContext.packageName)
     }

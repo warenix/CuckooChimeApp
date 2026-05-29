@@ -18,6 +18,14 @@ class ChimeReceiver : BroadcastReceiver() {
         if (action == ACTION_CHIME || isTest) {
             val calendar = Calendar.getInstance()
             
+            // Check if chime is still active in preferences before proceeding
+            val prefs = appContext.getSharedPreferences("CuckooChimePrefs", Context.MODE_PRIVATE)
+            val isChimeActive = prefs.getBoolean("chime_active", false)
+
+            if (!isChimeActive && !isTest) {
+                return
+            }
+
             if (isTest || !isSilentTime(appContext, calendar)) {
                 // Calendar.HOUR is 0-11. For 12-hour format, if it's 0, it's 12.
                 var hour = if (isTest) 1 else calendar.get(Calendar.HOUR)
@@ -40,8 +48,11 @@ class ChimeReceiver : BroadcastReceiver() {
                 setNextAlarm(appContext)
             }
         } else if (action == Intent.ACTION_BOOT_COMPLETED) {
-            // After boot, ensure the next alarm is scheduled
-            setNextAlarm(appContext)
+            // After boot, only schedule if it's supposed to be active
+            val prefs = appContext.getSharedPreferences("CuckooChimePrefs", Context.MODE_PRIVATE)
+            if (prefs.getBoolean("chime_active", false)) {
+                setNextAlarm(appContext)
+            }
         }
     }
 
@@ -67,54 +78,56 @@ class ChimeReceiver : BroadcastReceiver() {
         }
     }
 
-    fun setNextAlarm(context: Context) {
-        val appContext = context.applicationContext
-        val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        
-        // Calculate the start of the next hour
-        val nextHour = Calendar.getInstance().apply {
-            add(Calendar.HOUR_OF_DAY, 1)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
 
-        val intent = Intent(appContext, ChimeReceiver::class.java).apply {
-            action = ACTION_CHIME
-            setPackage(appContext.packageName)
-        }
-
-        val pendingIntent = PendingIntent.getBroadcast(
-            appContext,
-            ALARM_REQUEST_CODE,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // Create a PendingIntent that opens MainActivity when the user clicks the alarm icon
-        val showIntent = Intent(appContext, MainActivity::class.java).apply {
-            setPackage(appContext.packageName)
-        }
-        val showOperation = PendingIntent.getActivity(
-            appContext,
-            0,
-            showIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val alarmClockInfo = AlarmManager.AlarmClockInfo(nextHour.timeInMillis, showOperation)
-
-        // setAlarmClock() is the most precise way to schedule an alarm and helps bypass battery optimizations/batching
-        try {
-            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
-        } catch (e: SecurityException) {
-            // Handle cases where exact alarm permission is denied at runtime (if applicable)
-            e.printStackTrace()
-        }
-    }
 
     companion object {
         const val ACTION_CHIME = "org.dyndns.warenix.cuckoochime.ACTION_CHIME"
         const val ALARM_REQUEST_CODE = 1001
+
+        fun setNextAlarm(context: Context) {
+            val appContext = context.applicationContext
+            val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            
+            // Calculate the start of the next hour
+            val nextHour = Calendar.getInstance().apply {
+                add(Calendar.HOUR_OF_DAY, 1)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+
+            val intent = Intent(appContext, ChimeReceiver::class.java).apply {
+                action = ACTION_CHIME
+                setPackage(appContext.packageName)
+            }
+
+            val pendingIntent = PendingIntent.getBroadcast(
+                appContext,
+                ALARM_REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            // Create a PendingIntent that opens MainActivity when the user clicks the alarm icon
+            val showIntent = Intent(appContext, MainActivity::class.java).apply {
+                setPackage(appContext.packageName)
+            }
+            val showOperation = PendingIntent.getActivity(
+                appContext,
+                0,
+                showIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val alarmClockInfo = AlarmManager.AlarmClockInfo(nextHour.timeInMillis, showOperation)
+
+            // setAlarmClock() is the most precise way to schedule an alarm and helps bypass battery optimizations/batching
+            try {
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+            } catch (e: SecurityException) {
+                // Handle cases where exact alarm permission is denied at runtime (if applicable)
+                e.printStackTrace()
+            }
+        }
     }
 }
