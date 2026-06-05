@@ -17,6 +17,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -85,7 +86,10 @@ val AvailableSounds = listOf(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
         setContent {
             CuckooChimeTheme {
                 Box(
@@ -101,14 +105,7 @@ class MainActivity : ComponentActivity() {
                         containerColor = Color.Transparent,
                         modifier = Modifier.fillMaxSize()
                     ) { innerPadding ->
-                        Box(
-                            modifier = Modifier
-                                .padding(innerPadding)
-                                .fillMaxSize(),
-                            contentAlignment = Alignment.TopCenter
-                        ) {
-                            ChimeControlScreen()
-                        }
+                        ChimeControlScreen(innerPadding)
                     }
                 }
             }
@@ -117,7 +114,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ChimeControlScreen() {
+fun ChimeControlScreen(innerPadding: PaddingValues) {
     val context = LocalContext.current
     var isChimeActive by remember { mutableStateOf(getChimeActivePref(context)) }
     var isBirdVisible by remember { mutableStateOf(false) }
@@ -169,13 +166,15 @@ fun ChimeControlScreen() {
 
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+            .fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         if (isLandscape) {
             Row(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -255,16 +254,17 @@ fun ChimeControlScreen() {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
+                Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding() + 16.dp))
+
                 CuckooClockComponent(
                     isBirdVisible = isBirdVisible,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = 32.dp)
                 )
 
                 ControlCard(
@@ -317,8 +317,8 @@ fun ChimeControlScreen() {
                     onPreviewSound = { resId -> playPreviewSound(context, resId) }
                 )
                 
-                // Bottom spacer for better scrolling
-                Spacer(modifier = Modifier.height(16.dp))
+                // Bottom spacer for better scrolling and edge-to-edge support
+                Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding() + 16.dp))
             }
         }
     }
