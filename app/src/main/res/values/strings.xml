@@ -1,3 +1,23 @@
 <resources>
     <string name="app_name">CuckooChime</string>
+    <string name="permission_required_for_chime">Permission required for chime.</string>
+    <string name="clock_body_desc">Clock Body</string>
+    <string name="cuckoo_bird_desc">Cuckoo Bird</string>
+    <string name="stop_chime">Stop Chime</string>
+    <string name="start_chime">Start Chime</string>
+    <string name="test_chime">Test Chime</string>
+    <string name="silent_hours">Silent Hours</string>
+    <string name="silent_hours_desc">Shhh… %1$s to %2$s</string>
+    <string name="from">From</string>
+    <string name="until">Until</string>
+    <string name="choose_cuckoo_sound">Choose Cuckoo Sound</string>
+    <string name="cuckoo_1_classic">Cuckoo 1 (Classic)</string>
+    <string name="cuckoo_2_clock">Cuckoo 2 (Clock)</string>
+    <string name="ding">Ding</string>
+    <string name="sweet_bird_chirping">Sweet Bird Chirping</string>
+    <string name="bird_singing">Bird Singing</string>
+    <string name="preview_sound_desc">Preview Sound</string>
+    <string name="chime_service_channel">Chime Service Channel</string>
+    <string name="chime_service_notification_title">Cuckoo Chime</string>
+    <string name="chime_service_notification_text">Chiming %1$d times…</string>
 </resources>

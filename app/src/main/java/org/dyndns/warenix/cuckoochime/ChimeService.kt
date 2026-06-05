@@ -141,7 +141,7 @@ class ChimeService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Chime Service Channel",
+                getString(R.string.chime_service_channel),
                 NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)
@@ -151,8 +151,8 @@ class ChimeService : Service() {
 
     private fun createNotification(chimeCount: Int): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Cuckoo Chime")
-            .setContentText("Chiming $chimeCount times...")
+            .setContentTitle(getString(R.string.chime_service_notification_title))
+            .setContentText(getString(R.string.chime_service_notification_text, chimeCount))
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)

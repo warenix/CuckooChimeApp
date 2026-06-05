@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
 import org.dyndns.warenix.cuckoochime.ui.theme.CuckooChimeTheme
@@ -71,14 +72,14 @@ private const val KEY_SILENT_START_MINUTE = "silent_start_minute"
 private const val KEY_SILENT_END_HOUR = "silent_end_hour"
 private const val KEY_SILENT_END_MINUTE = "silent_end_minute"
 
-data class SoundOption(val name: String, val resId: Int)
+data class SoundOption(val nameResId: Int, val resId: Int)
 
 val AvailableSounds = listOf(
-    SoundOption("Cuckoo 1 (Classic)", R.raw.cuckoo),
-    SoundOption("Cuckoo 2 (Clock)", R.raw.cuckoo_clock),
-    SoundOption("Ding", R.raw.ding),
-    SoundOption("Sweet Bird Chirping", R.raw.sweet_bird_chirping),
-    SoundOption("Bird Singing", R.raw.bird_singing)
+    SoundOption(R.string.cuckoo_1_classic, R.raw.cuckoo),
+    SoundOption(R.string.cuckoo_2_clock, R.raw.cuckoo_clock),
+    SoundOption(R.string.ding, R.raw.ding),
+    SoundOption(R.string.sweet_bird_chirping, R.raw.sweet_bird_chirping),
+    SoundOption(R.string.bird_singing, R.raw.bird_singing)
 )
 
 class MainActivity : ComponentActivity() {
@@ -132,7 +133,7 @@ fun ChimeControlScreen() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (!isGranted) {
-            Toast.makeText(context, "Permission required for chime.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, context.getString(R.string.permission_required_for_chime), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -349,11 +350,11 @@ fun ControlCard(
             ) {
                 Icon(Icons.Default.Notifications, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text(if (isChimeActive) "Stop Chime" else "Start Chime", fontWeight = FontWeight.Bold)
+                Text(if (isChimeActive) stringResource(R.string.stop_chime) else stringResource(R.string.start_chime), fontWeight = FontWeight.Bold)
             }
 
             TextButton(onClick = onTestChime) {
-                Text("Test Chime", color = Color.White.copy(alpha = 0.7f))
+                Text(stringResource(R.string.test_chime), color = Color.White.copy(alpha = 0.7f))
             }
         }
     }
@@ -379,7 +380,7 @@ fun CuckooClockComponent(isBirdVisible: Boolean, modifier: Modifier = Modifier) 
         // 1. Clock Body (Bottom Layer)
         Image(
             painter = painterResource(id = R.drawable.clock_body),
-            contentDescription = "Clock Body",
+            contentDescription = stringResource(R.string.clock_body_desc),
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Fit
         )
@@ -399,7 +400,7 @@ fun CuckooClockComponent(isBirdVisible: Boolean, modifier: Modifier = Modifier) 
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.cuckoo_bird),
-                    contentDescription = "Cuckoo Bird",
+                    contentDescription = stringResource(R.string.cuckoo_bird_desc),
                     modifier = Modifier.size(birdSize),
                     contentScale = ContentScale.Fit
                 )
@@ -518,14 +519,14 @@ fun SilentHoursSection(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "Silent Hours",
+                stringResource(R.string.silent_hours),
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color.White,
                 fontWeight = FontWeight.Bold
             )
             
             Text(
-                "Shhh... ${formatTime(startHour, startMinute)} to ${formatTime(endHour, endMinute)}",
+                stringResource(R.string.silent_hours_desc, formatTime(startHour, startMinute), formatTime(endHour, endMinute)),
                 color = Color.White.copy(alpha = 0.7f),
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -543,7 +544,7 @@ fun SilentHoursSection(
                 ) {
                     Icon(Icons.Default.WbSunny, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("From", color = Color.White)
+                    Text(stringResource(R.string.from), color = Color.White)
                 }
                 
                 OutlinedButton(
@@ -553,7 +554,7 @@ fun SilentHoursSection(
                 ) {
                     Icon(Icons.Default.NightlightRound, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Until", color = Color.White)
+                    Text(stringResource(R.string.until), color = Color.White)
                 }
             }
         }
@@ -578,7 +579,7 @@ fun SoundSelectionSection(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "Choose Cuckoo Sound",
+                stringResource(R.string.choose_cuckoo_sound),
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color.White,
                 fontWeight = FontWeight.Bold
@@ -592,7 +593,7 @@ fun SoundSelectionSection(
             ) {
                 AvailableSounds.forEach { sound ->
                     SoundOptionRow(
-                        label = sound.name,
+                        label = stringResource(sound.nameResId),
                         isSelected = selectedResId == sound.resId,
                         onClick = { onSoundSelected(sound.resId) },
                         onPreviewClick = { onPreviewSound(sound.resId) }
@@ -626,7 +627,7 @@ fun SoundOptionRow(
             IconButton(onClick = onPreviewClick) {
                 Icon(
                     Icons.Default.PlayArrow,
-                    contentDescription = "Preview Sound",
+                    contentDescription = stringResource(R.string.preview_sound_desc),
                     tint = Color.White
                 )
             }
