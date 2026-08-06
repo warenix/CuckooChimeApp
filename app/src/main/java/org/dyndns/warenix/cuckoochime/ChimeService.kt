@@ -3,6 +3,7 @@ package org.dyndns.warenix.cuckoochime
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -30,6 +31,11 @@ class ChimeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP_CHIME) {
+            stopChime()
+            return START_NOT_STICKY
+        }
+
         val chimeCount = intent?.getIntExtra(EXTRA_CHIME_COUNT, 1) ?: 1
         val soundResId = intent?.getIntExtra(EXTRA_SOUND_RES_ID, R.raw.cuckoo) ?: R.raw.cuckoo
         
@@ -63,6 +69,18 @@ class ChimeService : Service() {
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CuckooChime::WakeLock").apply {
             acquire(10 * 60 * 1000L /* 10 minutes max safety timeout */)
         }
+    }
+
+    private fun stopChime() {
+        Log.d("CuckooChime", "Stop chime requested")
+        serviceScope.cancel()
+        mediaPlayer?.release()
+        mediaPlayer = null
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     private suspend fun playChimes(count: Int, soundResId: Int) {
@@ -150,12 +168,28 @@ class ChimeService : Service() {
     }
 
     private fun createNotification(chimeCount: Int): Notification {
+        val stopIntent = Intent(this, ChimeService::class.java).apply {
+            action = ACTION_STOP_CHIME
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this,
+            STOP_REQUEST_CODE,
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.chime_service_notification_title))
             .setContentText(getString(R.string.chime_service_notification_text, chimeCount))
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
+            .addAction(
+                NotificationCompat.Action.Builder(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    getString(R.string.stop_chime),
+                    stopPendingIntent
+                ).build()
+            )
             .build()
     }
 
@@ -172,9 +206,11 @@ class ChimeService : Service() {
     companion object {
         const val CHANNEL_ID = "ChimeServiceChannel"
         const val NOTIFICATION_ID = 1
+        const val STOP_REQUEST_CODE = 2
         const val EXTRA_CHIME_COUNT = "EXTRA_CHIME_COUNT"
         const val EXTRA_SOUND_RES_ID = "EXTRA_SOUND_RES_ID"
         const val ACTION_PLAY_CHIME = "ACTION_PLAY_CHIME"
+        const val ACTION_STOP_CHIME = "ACTION_STOP_CHIME"
         const val ACTION_BIRD_VISIBILITY = "org.dyndns.warenix.cuckoochime.ACTION_BIRD_VISIBILITY"
         const val EXTRA_IS_VISIBLE = "EXTRA_IS_VISIBLE"
     }
