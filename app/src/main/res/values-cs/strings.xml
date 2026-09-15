@@ -20,4 +20,10 @@
     <string name="chime_service_channel">Kanál služby odbíjení</string>
     <string name="chime_service_notification_title">Kukačky</string>
     <string name="chime_service_notification_text">Odbíjí %1$d krát…</string>
+    <string name="night_mode">Noční pracovní režim</string>
+    <string name="night_mode_desc">Odbíjet i během tichých hodin, i když je telefon ztlumený. Používá hlasitost budíku.</string>
+    <string name="night_mode_enabled_hint">Zapnuto — tiché hodiny ignorovány, hlasitost budíku zvýšena</string>
+    <string name="night_mode_disabled_hint">Vypnuto — během tichých hodin ticho</string>
+    <string name="night_volume">Noční hlasitost</string>
+    <string name="night_volume_percent">%1$d %%</string>
 </resources>

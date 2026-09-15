@@ -20,4 +20,10 @@
     <string name="chime_service_channel">Läute-Service-Kanal</string>
     <string name="chime_service_notification_title">Kuckucksuhr</string>
     <string name="chime_service_notification_text">Läutet %1$d Mal…</string>
+    <string name="night_mode">Nachtmodus</string>
+    <string name="night_mode_desc">Auch während der Ruhezeit läuten, selbst wenn das Telefon stumm ist. Verwendet die Wecklautstärke.</string>
+    <string name="night_mode_enabled_hint">An — Ruhezeit wird ignoriert, Wecklautstärke erhöht</string>
+    <string name="night_mode_disabled_hint">Aus — während der Ruhezeit stumm</string>
+    <string name="night_volume">Nachtlautstärke</string>
+    <string name="night_volume_percent">%1$d %%</string>
 </resources>
