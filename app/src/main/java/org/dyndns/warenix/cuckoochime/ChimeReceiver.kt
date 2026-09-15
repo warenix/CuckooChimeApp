@@ -26,7 +26,9 @@ class ChimeReceiver : BroadcastReceiver() {
                 return
             }
 
-            if (isTest || !isSilentTime(appContext, calendar)) {
+            val isNightMode = prefs.getBoolean(KEY_NIGHT_MODE, false)
+
+            if (isTest || isNightMode || !isSilentTime(appContext, calendar)) {
                 // Calendar.HOUR is 0-11. For 12-hour format, if it's 0, it's 12.
                 var hour = if (isTest) 1 else calendar.get(Calendar.HOUR)
                 if (hour == 0) hour = 12
@@ -83,6 +85,8 @@ class ChimeReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_CHIME = "org.dyndns.warenix.cuckoochime.ACTION_CHIME"
         const val ALARM_REQUEST_CODE = 1001
+        const val KEY_NIGHT_MODE = "night_mode_active"
+        const val KEY_NIGHT_VOLUME = "night_mode_volume_percent"
 
         fun setNextAlarm(context: Context) {
             val appContext = context.applicationContext

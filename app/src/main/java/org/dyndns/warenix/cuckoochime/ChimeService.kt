@@ -8,7 +8,10 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -21,6 +24,7 @@ class ChimeService : Service() {
 
     private var mediaPlayer: MediaPlayer? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var originalAlarmVolume: Int = -1
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -52,11 +56,13 @@ class ChimeService : Service() {
         }
 
         acquireWakeLock()
+        boostAlarmVolumeIfNeeded()
         
         serviceScope.launch {
             try {
                 playChimes(chimeCount, soundResId)
             } finally {
+                restoreAlarmVolume()
                 stopSelf()
             }
         }
@@ -76,11 +82,54 @@ class ChimeService : Service() {
         serviceScope.cancel()
         mediaPlayer?.release()
         mediaPlayer = null
+        restoreAlarmVolume()
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private fun isNightModeActive(): Boolean {
+        return getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(ChimeReceiver.KEY_NIGHT_MODE, false)
+    }
+
+    private fun boostAlarmVolumeIfNeeded() {
+        if (!isNightModeActive()) {
+            originalAlarmVolume = -1
+            return
+        }
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            originalAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+            val percent = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getInt(ChimeReceiver.KEY_NIGHT_VOLUME, 100).coerceIn(0, 100)
+            // Ensure at least 1 so night mode is never accidentally silent,
+            // unless user explicitly picked 0.
+            val targetVolume = if (percent == 0) 0 else ((percent / 100f * maxVolume).toInt().coerceIn(1, maxVolume))
+            if (originalAlarmVolume != targetVolume) {
+                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, targetVolume, 0)
+                Log.d("CuckooChime", "Night mode: set alarm volume $originalAlarmVolume -> $targetVolume ($percent%)")
+            }
+        } catch (e: Exception) {
+            Log.e("CuckooChime", "Failed to boost alarm volume", e)
+            originalAlarmVolume = -1
+        }
+    }
+
+    private fun restoreAlarmVolume() {
+        if (originalAlarmVolume < 0) return
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, originalAlarmVolume, 0)
+            Log.d("CuckooChime", "Night mode: restored alarm volume to $originalAlarmVolume")
+        } catch (e: Exception) {
+            Log.e("CuckooChime", "Failed to restore alarm volume", e)
+        } finally {
+            originalAlarmVolume = -1
+        }
     }
 
     private suspend fun playChimes(count: Int, soundResId: Int) {
@@ -111,7 +160,19 @@ class ChimeService : Service() {
         mediaPlayer?.release()
         
         val mp: MediaPlayer? = try {
-            MediaPlayer.create(this as Context, soundResId)
+            MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                setDataSource(
+                    this@ChimeService,
+                    Uri.parse("android.resource://${packageName}/$soundResId")
+                )
+                prepare()
+            }
         } catch (e: Exception) {
             Log.e("CuckooChime", "Failed to create MediaPlayer", e)
             null
@@ -197,6 +258,7 @@ class ChimeService : Service() {
         serviceScope.cancel()
         mediaPlayer?.release()
         mediaPlayer = null
+        restoreAlarmVolume()
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }
@@ -204,6 +266,7 @@ class ChimeService : Service() {
     }
 
     companion object {
+        const val PREFS_NAME = "CuckooChimePrefs"
         const val CHANNEL_ID = "ChimeServiceChannel"
         const val NOTIFICATION_ID = 1
         const val STOP_REQUEST_CODE = 2

@@ -40,6 +40,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -72,6 +74,8 @@ private const val KEY_SILENT_START_HOUR = "silent_start_hour"
 private const val KEY_SILENT_START_MINUTE = "silent_start_minute"
 private const val KEY_SILENT_END_HOUR = "silent_end_hour"
 private const val KEY_SILENT_END_MINUTE = "silent_end_minute"
+private const val KEY_NIGHT_MODE = "night_mode_active"
+private const val KEY_NIGHT_VOLUME = "night_mode_volume_percent"
 
 data class SoundOption(val nameResId: Int, val resId: Int)
 
@@ -125,6 +129,8 @@ fun ChimeControlScreen(innerPadding: PaddingValues) {
     var silentEndMinute by remember { mutableStateOf(getPrefInt(context, KEY_SILENT_END_MINUTE, 0)) }
 
     var selectedSoundResId by remember { mutableStateOf(getPrefInt(context, KEY_SELECTED_SOUND_RES_ID, R.raw.cuckoo)) }
+    var isNightMode by remember { mutableStateOf(getPrefBoolean(context, KEY_NIGHT_MODE, false)) }
+    var nightVolumePercent by remember { mutableStateOf(getPrefInt(context, KEY_NIGHT_VOLUME, 100)) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -234,6 +240,16 @@ fun ChimeControlScreen(innerPadding: PaddingValues) {
                                 setPrefInt(context, KEY_SILENT_END_HOUR, h)
                                 setPrefInt(context, KEY_SILENT_END_MINUTE, m)
                             }, silentEndHour, silentEndMinute, false).show()
+                        },
+                        isNightMode = isNightMode,
+                        onNightModeChange = {
+                            isNightMode = it
+                            setPrefBoolean(context, KEY_NIGHT_MODE, it)
+                        },
+                        nightVolumePercent = nightVolumePercent,
+                        onNightVolumeChange = {
+                            nightVolumePercent = it
+                            setPrefInt(context, KEY_NIGHT_VOLUME, it)
                         }
                     )
 
@@ -305,6 +321,16 @@ fun ChimeControlScreen(innerPadding: PaddingValues) {
                             setPrefInt(context, KEY_SILENT_END_HOUR, h)
                             setPrefInt(context, KEY_SILENT_END_MINUTE, m)
                         }, silentEndHour, silentEndMinute, false).show()
+                    },
+                    isNightMode = isNightMode,
+                    onNightModeChange = {
+                        isNightMode = it
+                        setPrefBoolean(context, KEY_NIGHT_MODE, it)
+                    },
+                    nightVolumePercent = nightVolumePercent,
+                    onNightVolumeChange = {
+                        nightVolumePercent = it
+                        setPrefInt(context, KEY_NIGHT_VOLUME, it)
                     }
                 )
 
@@ -505,7 +531,11 @@ fun SilentHoursSection(
     endHour: Int,
     endMinute: Int,
     onStartTimeClick: () -> Unit,
-    onEndTimeClick: () -> Unit
+    onEndTimeClick: () -> Unit,
+    isNightMode: Boolean,
+    onNightModeChange: (Boolean) -> Unit,
+    nightVolumePercent: Int,
+    onNightVolumeChange: (Int) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -555,6 +585,88 @@ fun SilentHoursSection(
                     Icon(Icons.Default.NightlightRound, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.until), color = Color.White)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.night_mode),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        stringResource(R.string.night_mode_desc),
+                        color = Color.White.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        stringResource(if (isNightMode) R.string.night_mode_enabled_hint else R.string.night_mode_disabled_hint),
+                        color = if (isNightMode) Color(0xFF81C784) else Color.White.copy(alpha = 0.5f),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Switch(
+                    checked = isNightMode,
+                    onCheckedChange = onNightModeChange
+                )
+            }
+
+            AnimatedVisibility(visible = isNightMode) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.VolumeDown,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Slider(
+                            value = nightVolumePercent.toFloat(),
+                            onValueChange = { onNightVolumeChange(it.toInt()) },
+                            valueRange = 0f..100f,
+                            steps = 9,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp)
+                        )
+                        Icon(
+                            Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.night_volume_percent, nightVolumePercent),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.widthIn(min = 52.dp)
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.night_volume),
+                        color = Color.White.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }
@@ -694,6 +806,18 @@ fun setPrefInt(context: Context, key: String, value: Int) {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
         .putInt(key, value)
+        .apply()
+}
+
+fun getPrefBoolean(context: Context, key: String, defaultValue: Boolean): Boolean {
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getBoolean(key, defaultValue)
+}
+
+fun setPrefBoolean(context: Context, key: String, value: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(key, value)
         .apply()
 }
 
