@@ -5,14 +5,14 @@ plugins {
 
 android {
     namespace = "org.dyndns.warenix.cuckoochime"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "org.dyndns.warenix.cuckoochime"
         minSdk = 30
-        targetSdk = 36
-        versionCode = 7
-        versionName = "1.5"
+        targetSdk = 37
+        versionCode = 8
+        versionName = "1.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
