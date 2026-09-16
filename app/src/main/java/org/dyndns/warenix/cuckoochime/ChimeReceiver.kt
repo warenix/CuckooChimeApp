@@ -85,7 +85,9 @@ class ChimeReceiver : BroadcastReceiver() {
         const val ACTION_CHIME = "org.dyndns.warenix.cuckoochime.ACTION_CHIME"
         const val ALARM_REQUEST_CODE = 1001
         const val KEY_NIGHT_MODE = "night_mode_active"
-        const val KEY_NIGHT_VOLUME = "night_mode_volume_percent"
+        // Same stored key as before ("night_mode_volume_percent") so existing
+        // installs keep their setting; now scales every chime, not just night.
+        const val KEY_CHIME_VOLUME = "night_mode_volume_percent"
         private const val SCHEDULE_FAILED_CHANNEL_ID = "ScheduleFailedChannel"
         private const val SCHEDULE_FAILED_NOTIFICATION_ID = 1002
 

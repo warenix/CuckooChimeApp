@@ -22,11 +22,11 @@
     <string name="chime_service_notification_title">布谷鳥報時</string>
     <string name="chime_service_notification_text">正在報時 %1$d 次…</string>
     <string name="night_mode">夜間工作模式</string>
-    <string name="night_mode_desc">即使手機靜音，仍在勿擾時段報時。使用鬧鐘音量。</string>
-    <string name="night_mode_enabled_hint">開 — 忽略勿擾時段，提高鬧鐘音量</string>
+    <string name="night_mode_desc">所有報時都使用鬧鐘音量。開啟時，即使手機靜音也會忽略勿擾時段。</string>
+    <string name="night_mode_enabled_hint">開 — 忽略勿擾時段</string>
     <string name="night_mode_disabled_hint">關 — 勿擾時段保持靜音</string>
-    <string name="night_volume">夜間音量</string>
-    <string name="night_volume_percent">%1$d%%</string>
+    <string name="chime_volume_percent">%1$d%%</string>
+    <string name="chime_volume_desc">只調整報時聲 — 鬧鐘維持最大聲。</string>
     <string name="schedule_failed_channel">排程提醒</string>
     <string name="schedule_failed_title">布谷鳥報時已暫停</string>
     <string name="schedule_failed_text">精確鬧鐘權限已被撤銷。輕觸以重新啟用，讓整點報時恢復運作。</string>

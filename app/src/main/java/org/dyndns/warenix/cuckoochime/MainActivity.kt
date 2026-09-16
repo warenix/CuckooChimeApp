@@ -5,7 +5,9 @@ import android.util.Log
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.app.TimePickerDialog
+import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.net.Uri
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -75,7 +77,7 @@ private const val KEY_SILENT_START_MINUTE = "silent_start_minute"
 private const val KEY_SILENT_END_HOUR = "silent_end_hour"
 private const val KEY_SILENT_END_MINUTE = "silent_end_minute"
 private const val KEY_NIGHT_MODE = "night_mode_active"
-private const val KEY_NIGHT_VOLUME = "night_mode_volume_percent"
+private const val KEY_CHIME_VOLUME = "night_mode_volume_percent"
 
 data class SoundOption(val nameResId: Int, val resId: Int)
 
@@ -135,7 +137,7 @@ fun ChimeControlScreen(innerPadding: PaddingValues) {
 
     var selectedSoundResId by remember { mutableStateOf(getPrefInt(context, KEY_SELECTED_SOUND_RES_ID, R.raw.cuckoo)) }
     var isNightMode by remember { mutableStateOf(getPrefBoolean(context, KEY_NIGHT_MODE, false)) }
-    var nightVolumePercent by remember { mutableStateOf(getPrefInt(context, KEY_NIGHT_VOLUME, 100)) }
+    var chimeVolumePercent by remember { mutableStateOf(getPrefInt(context, KEY_CHIME_VOLUME, 100)) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -253,11 +255,6 @@ fun ChimeControlScreen(innerPadding: PaddingValues) {
                         onNightModeChange = {
                             isNightMode = it
                             setPrefBoolean(context, KEY_NIGHT_MODE, it)
-                        },
-                        nightVolumePercent = nightVolumePercent,
-                        onNightVolumeChange = {
-                            nightVolumePercent = it
-                            setPrefInt(context, KEY_NIGHT_VOLUME, it)
                         }
                     )
 
@@ -269,7 +266,12 @@ fun ChimeControlScreen(innerPadding: PaddingValues) {
                             selectedSoundResId = resId
                             setPrefInt(context, KEY_SELECTED_SOUND_RES_ID, resId)
                         },
-                        onPreviewSound = { resId -> playPreviewSound(context, resId) }
+                        onPreviewSound = { resId -> playPreviewSound(context, resId) },
+                        chimeVolumePercent = chimeVolumePercent,
+                        onChimeVolumeChange = {
+                            chimeVolumePercent = it
+                            setPrefInt(context, KEY_CHIME_VOLUME, it)
+                        }
                     )
                 }
             }
@@ -334,11 +336,6 @@ fun ChimeControlScreen(innerPadding: PaddingValues) {
                     onNightModeChange = {
                         isNightMode = it
                         setPrefBoolean(context, KEY_NIGHT_MODE, it)
-                    },
-                    nightVolumePercent = nightVolumePercent,
-                    onNightVolumeChange = {
-                        nightVolumePercent = it
-                        setPrefInt(context, KEY_NIGHT_VOLUME, it)
                     }
                 )
 
@@ -348,7 +345,12 @@ fun ChimeControlScreen(innerPadding: PaddingValues) {
                         selectedSoundResId = resId
                         setPrefInt(context, KEY_SELECTED_SOUND_RES_ID, resId)
                     },
-                    onPreviewSound = { resId -> playPreviewSound(context, resId) }
+                    onPreviewSound = { resId -> playPreviewSound(context, resId) },
+                    chimeVolumePercent = chimeVolumePercent,
+                    onChimeVolumeChange = {
+                        chimeVolumePercent = it
+                        setPrefInt(context, KEY_CHIME_VOLUME, it)
+                    }
                 )
                 
                 // Bottom spacer for better scrolling and edge-to-edge support
@@ -541,9 +543,7 @@ fun SilentHoursSection(
     onStartTimeClick: () -> Unit,
     onEndTimeClick: () -> Unit,
     isNightMode: Boolean,
-    onNightModeChange: (Boolean) -> Unit,
-    nightVolumePercent: Int,
-    onNightVolumeChange: (Int) -> Unit
+    onNightModeChange: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -633,51 +633,6 @@ fun SilentHoursSection(
                     onCheckedChange = onNightModeChange
                 )
             }
-
-            AnimatedVisibility(visible = isNightMode) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.VolumeDown,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Slider(
-                            value = nightVolumePercent.toFloat(),
-                            onValueChange = { onNightVolumeChange(it.toInt()) },
-                            valueRange = 0f..100f,
-                            steps = 9,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp)
-                        )
-                        Icon(
-                            Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            stringResource(R.string.night_volume_percent, nightVolumePercent),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.widthIn(min = 52.dp)
-                        )
-                    }
-                    Text(
-                        stringResource(R.string.night_volume),
-                        color = Color.White.copy(alpha = 0.7f),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
         }
     }
 }
@@ -686,7 +641,9 @@ fun SilentHoursSection(
 fun SoundSelectionSection(
     selectedResId: Int,
     onSoundSelected: (Int) -> Unit,
-    onPreviewSound: (Int) -> Unit
+    onPreviewSound: (Int) -> Unit,
+    chimeVolumePercent: Int,
+    onChimeVolumeChange: (Int) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -721,6 +678,52 @@ fun SoundSelectionSection(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.VolumeDown,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp)
+                )
+                Slider(
+                    value = chimeVolumePercent.toFloat(),
+                    onValueChange = { onChimeVolumeChange(it.toInt()) },
+                    valueRange = 0f..100f,
+                    steps = 9,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                )
+                Icon(
+                    Icons.AutoMirrored.Filled.VolumeUp,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    stringResource(R.string.chime_volume_percent, chimeVolumePercent),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.widthIn(min = 52.dp)
+                )
+            }
+            Text(
+                stringResource(R.string.chime_volume_desc),
+                color = Color.White.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
@@ -774,9 +777,20 @@ fun playPreviewSound(context: Context, resId: Int) {
     try {
         previewMediaPlayer?.stop()
         previewMediaPlayer?.release()
-        
-        previewMediaPlayer = MediaPlayer.create(context, resId).apply {
-            setOnCompletionListener { 
+
+        // Preview on the alarm channel too, with the same gain real chimes use.
+        val gain = getPrefInt(context, KEY_CHIME_VOLUME, 100).coerceIn(0, 100) / 100f
+        previewMediaPlayer = MediaPlayer().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            setDataSource(context, Uri.parse("android.resource://${context.packageName}/$resId"))
+            prepare()
+            setVolume(gain, gain)
+            setOnCompletionListener {
                 it.release()
                 if (previewMediaPlayer == it) previewMediaPlayer = null
             }

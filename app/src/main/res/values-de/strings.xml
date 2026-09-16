@@ -22,11 +22,11 @@
     <string name="chime_service_notification_title">Kuckucksuhr</string>
     <string name="chime_service_notification_text">Läutet %1$d Mal…</string>
     <string name="night_mode">Nachtmodus</string>
-    <string name="night_mode_desc">Auch während der Ruhezeit läuten, selbst wenn das Telefon stumm ist. Verwendet die Wecklautstärke.</string>
-    <string name="night_mode_enabled_hint">An — Ruhezeit wird ignoriert, Wecklautstärke erhöht</string>
+    <string name="night_mode_desc">Alle Signaltöne nutzen die Wecklautstärke. Wenn aktiv, wird die Ruhezeit ignoriert, auch wenn das Telefon stumm ist.</string>
+    <string name="night_mode_enabled_hint">An — Ruhezeit wird ignoriert</string>
     <string name="night_mode_disabled_hint">Aus — während der Ruhezeit stumm</string>
-    <string name="night_volume">Nachtlautstärke</string>
-    <string name="night_volume_percent">%1$d %%</string>
+    <string name="chime_volume_percent">%1$d %%</string>
+    <string name="chime_volume_desc">Regelt nur das Läuten — dein Wecker bleibt voll laut.</string>
     <string name="schedule_failed_channel">Planungshinweise</string>
     <string name="schedule_failed_title">Kuckucksläuten pausiert</string>
     <string name="schedule_failed_text">Die Berechtigung für exakte Alarme wurde entzogen. Tippen, um sie erneut zu erteilen, damit das stündliche Läuten fortgesetzt wird.</string>

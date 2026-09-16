@@ -22,11 +22,11 @@
     <string name="chime_service_notification_title">Cuckoo Chime</string>
     <string name="chime_service_notification_text">Chiming %1$d times…</string>
     <string name="night_mode">Night working mode</string>
-    <string name="night_mode_desc">Chime during silent hours, even if the phone is silent. Uses alarm volume.</string>
-    <string name="night_mode_enabled_hint">On — silent hours ignored, alarm volume boosted</string>
+    <string name="night_mode_desc">All chimes play on the alarm volume. When on, silent hours are ignored even if the phone is silent.</string>
+    <string name="night_mode_enabled_hint">On — silent hours ignored</string>
     <string name="night_mode_disabled_hint">Off — silent during silent hours</string>
-    <string name="night_volume">Night volume</string>
-    <string name="night_volume_percent">%1$d%%</string>
+    <string name="chime_volume_percent">%1$d%%</string>
+    <string name="chime_volume_desc">Scales the chime only — your alarm clock stays full volume.</string>
     <string name="schedule_failed_channel">Scheduling alerts</string>
     <string name="schedule_failed_title">CuckooChime paused</string>
     <string name="schedule_failed_text">Exact alarm permission was revoked. Tap to re-enable so hourly chimes resume.</string>
