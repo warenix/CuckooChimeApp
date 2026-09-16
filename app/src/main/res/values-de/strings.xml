@@ -8,6 +8,7 @@
     <string name="test_chime">Testläuten</string>
     <string name="silent_hours">Ruhezeit</string>
     <string name="silent_hours_desc">Pssst… %1$s bis %2$s</string>
+    <string name="silent_hours_night_desc">Nachtmodus ist an — Läuten rund um die Uhr</string>
     <string name="from">Von</string>
     <string name="until">Bis</string>
     <string name="choose_cuckoo_sound">Kuckuckston wählen</string>
@@ -26,4 +27,7 @@
     <string name="night_mode_disabled_hint">Aus — während der Ruhezeit stumm</string>
     <string name="night_volume">Nachtlautstärke</string>
     <string name="night_volume_percent">%1$d %%</string>
+    <string name="schedule_failed_channel">Planungshinweise</string>
+    <string name="schedule_failed_title">Kuckucksläuten pausiert</string>
+    <string name="schedule_failed_text">Die Berechtigung für exakte Alarme wurde entzogen. Tippen, um sie erneut zu erteilen, damit das stündliche Läuten fortgesetzt wird.</string>
 </resources>

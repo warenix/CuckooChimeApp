@@ -90,6 +90,11 @@ val AvailableSounds = listOf(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Self-heal: backup restore can leave chime_active=true with no alarm
+        // scheduled. Re-arming is idempotent (same PendingIntent).
+        if (getChimeActivePref(this)) {
+            ChimeReceiver.setNextAlarm(this)
+        }
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
@@ -141,7 +146,10 @@ fun ChimeControlScreen(innerPadding: PaddingValues) {
     }
 
     LaunchedEffect(Unit) {
-        checkAndRequestPermissions(context, permissionLauncher)
+        // On launch only ask for the notification permission. The exact-alarm
+        // system screen is only opened from the Start tap below, so first
+        // launch never yanks the user out of the app unexpectedly.
+        requestNotificationPermission(context, permissionLauncher)
     }
 
     val configuration = LocalConfiguration.current
@@ -556,7 +564,8 @@ fun SilentHoursSection(
             )
             
             Text(
-                stringResource(R.string.silent_hours_desc, formatTime(startHour, startMinute), formatTime(endHour, endMinute)),
+                if (isNightMode) stringResource(R.string.silent_hours_night_desc)
+                else stringResource(R.string.silent_hours_desc, formatTime(startHour, startMinute), formatTime(endHour, endMinute)),
                 color = Color.White.copy(alpha = 0.7f),
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -840,6 +849,8 @@ fun stopChime(context: Context) {
     )
     val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     alarmManager.cancel(pendingIntent)
+    // Also silence a chime that is already playing.
+    appContext.stopService(Intent(appContext, ChimeService::class.java))
 }
 
 fun testChime(context: Context) {
@@ -869,12 +880,16 @@ fun hasRequiredPermissions(context: Context): Boolean {
     return notificationPermission && alarmPermission
 }
 
-fun checkAndRequestPermissions(context: Context, launcher: androidx.activity.result.ActivityResultLauncher<String>) {
+fun requestNotificationPermission(context: Context, launcher: androidx.activity.result.ActivityResultLauncher<String>) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
+}
+
+fun checkAndRequestPermissions(context: Context, launcher: androidx.activity.result.ActivityResultLauncher<String>) {
+    requestNotificationPermission(context, launcher)
     
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager

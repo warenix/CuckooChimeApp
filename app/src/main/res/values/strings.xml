@@ -8,6 +8,7 @@
     <string name="test_chime">Test Chime</string>
     <string name="silent_hours">Silent Hours</string>
     <string name="silent_hours_desc">Shhh… %1$s to %2$s</string>
+    <string name="silent_hours_night_desc">Night mode is on — chiming around the clock</string>
     <string name="from">From</string>
     <string name="until">Until</string>
     <string name="choose_cuckoo_sound">Choose Cuckoo Sound</string>
@@ -26,4 +27,7 @@
     <string name="night_mode_disabled_hint">Off — silent during silent hours</string>
     <string name="night_volume">Night volume</string>
     <string name="night_volume_percent">%1$d%%</string>
+    <string name="schedule_failed_channel">Scheduling alerts</string>
+    <string name="schedule_failed_title">CuckooChime paused</string>
+    <string name="schedule_failed_text">Exact alarm permission was revoked. Tap to re-enable so hourly chimes resume.</string>
 </resources>

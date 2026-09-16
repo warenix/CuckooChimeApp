@@ -8,6 +8,7 @@
     <string name="test_chime">測試報時</string>
     <string name="silent_hours">勿擾時段</string>
     <string name="silent_hours_desc">噓… %1$s 到 %2$s</string>
+    <string name="silent_hours_night_desc">夜間模式已開啟 — 全天報時</string>
     <string name="from">從</string>
     <string name="until">直到</string>
     <string name="choose_cuckoo_sound">選擇布谷鳥聲音</string>
@@ -26,4 +27,7 @@
     <string name="night_mode_disabled_hint">關 — 勿擾時段保持靜音</string>
     <string name="night_volume">夜間音量</string>
     <string name="night_volume_percent">%1$d%%</string>
+    <string name="schedule_failed_channel">排程提醒</string>
+    <string name="schedule_failed_title">布谷鳥報時已暫停</string>
+    <string name="schedule_failed_text">精確鬧鐘權限已被撤銷。輕觸以重新啟用，讓整點報時恢復運作。</string>
 </resources>

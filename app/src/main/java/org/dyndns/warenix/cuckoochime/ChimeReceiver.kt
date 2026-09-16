@@ -1,10 +1,16 @@
 package org.dyndns.warenix.cuckoochime
 
 import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import java.util.Calendar
 
@@ -33,7 +39,6 @@ class ChimeReceiver : BroadcastReceiver() {
                 var hour = if (isTest) 1 else calendar.get(Calendar.HOUR)
                 if (hour == 0) hour = 12
 
-                val prefs = appContext.getSharedPreferences("CuckooChimePrefs", Context.MODE_PRIVATE)
                 val soundResId = prefs.getInt("selected_sound_res_id", R.raw.cuckoo)
 
                 val serviceIntent = Intent(appContext, ChimeService::class.java).apply {
@@ -47,12 +52,6 @@ class ChimeReceiver : BroadcastReceiver() {
             
             if (!isTest) {
                 // Schedule the next one only if it's not a test
-                setNextAlarm(appContext)
-            }
-        } else if (action == Intent.ACTION_BOOT_COMPLETED) {
-            // After boot, only schedule if it's supposed to be active
-            val prefs = appContext.getSharedPreferences("CuckooChimePrefs", Context.MODE_PRIVATE)
-            if (prefs.getBoolean("chime_active", false)) {
                 setNextAlarm(appContext)
             }
         }
@@ -87,6 +86,8 @@ class ChimeReceiver : BroadcastReceiver() {
         const val ALARM_REQUEST_CODE = 1001
         const val KEY_NIGHT_MODE = "night_mode_active"
         const val KEY_NIGHT_VOLUME = "night_mode_volume_percent"
+        private const val SCHEDULE_FAILED_CHANNEL_ID = "ScheduleFailedChannel"
+        private const val SCHEDULE_FAILED_NOTIFICATION_ID = 1002
 
         fun setNextAlarm(context: Context) {
             val appContext = context.applicationContext
@@ -129,9 +130,42 @@ class ChimeReceiver : BroadcastReceiver() {
             try {
                 alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
             } catch (e: SecurityException) {
-                // Handle cases where exact alarm permission is denied at runtime (if applicable)
+                // Exact-alarm permission was revoked while chimes are active:
+                // tell the user how to re-enable instead of dying silently.
                 e.printStackTrace()
+                showScheduleFailedNotification(appContext)
             }
+        }
+
+        private fun showScheduleFailedNotification(context: Context) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                manager.createNotificationChannel(
+                    NotificationChannel(
+                        SCHEDULE_FAILED_CHANNEL_ID,
+                        context.getString(R.string.schedule_failed_channel),
+                        NotificationManager.IMPORTANCE_HIGH
+                    )
+                )
+            }
+            val settingsIntent = Intent(
+                Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                Uri.parse("package:${context.packageName}")
+            )
+            val contentIntent = PendingIntent.getActivity(
+                context,
+                0,
+                settingsIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val notification = NotificationCompat.Builder(context, SCHEDULE_FAILED_CHANNEL_ID)
+                .setContentTitle(context.getString(R.string.schedule_failed_title))
+                .setContentText(context.getString(R.string.schedule_failed_text))
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentIntent(contentIntent)
+                .setAutoCancel(true)
+                .build()
+            manager.notify(SCHEDULE_FAILED_NOTIFICATION_ID, notification)
         }
     }
 }

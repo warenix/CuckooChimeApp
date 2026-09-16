@@ -8,6 +8,7 @@
     <string name="test_chime">Testovat odbíjení</string>
     <string name="silent_hours">Tiché hodiny</string>
     <string name="silent_hours_desc">Pšššt… %1$s až %2$s</string>
+    <string name="silent_hours_night_desc">Noční režim je zapnutý — odbíjí nepřetržitě</string>
     <string name="from">Od</string>
     <string name="until">Do</string>
     <string name="choose_cuckoo_sound">Vyberte zvuk kukačky</string>
@@ -26,4 +27,7 @@
     <string name="night_mode_disabled_hint">Vypnuto — během tichých hodin ticho</string>
     <string name="night_volume">Noční hlasitost</string>
     <string name="night_volume_percent">%1$d %%</string>
+    <string name="schedule_failed_channel">Upozornění na plánování</string>
+    <string name="schedule_failed_title">Odbíjení pozastaveno</string>
+    <string name="schedule_failed_text">Oprávnění pro přesné budíky bylo odebráno. Klepnutím jej znovu udělte, aby hodinové odbíjení pokračovalo.</string>
 </resources>
